@@ -9547,6 +9547,15 @@ function initPlot(error, data) {
         .enter()
         .append('option')
         .html(function (d) { return d; });
+    document.getElementById('type-selector')
+        .addEventListener('change', filterUpdate);
+    function filterUpdate() {
+        var selected_type = this.value;
+        function hasType(d) {
+            return type(d) === selected_type;
+        }
+        plotData(data.filter(hasType));
+    }
     // Creating a plot
     svg = d3.select('#plot');
     svg.attr({ width : 1000,
@@ -9560,15 +9569,16 @@ function initPlot(error, data) {
 }
 
 function plotData(data) {
-    svg.selectAll('circle')
-        .data(data)
-        .enter()
+    var selection = svg.selectAll('circle').data(data);
+
+    selection.enter()
         .append('circle')
         .attr({cx : function (d) { return xScale(x(d)); },
                cy : function (d) { return yScale(y(d)); },
                r : 2,
                fill : function (d) { return typeScale(type(d)); }
               });
+    selection.exit().remove();
 }
 
 },{"./filter_form":2,"d3":1}]},{},[3]);
