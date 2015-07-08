@@ -1,0 +1,23 @@
+{
+  "name": "pdx-crime",
+  "version": "0.1.0",
+  "description": "A interactive data visualization of crime incidents in Portland.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Will Jones",
+  "license": "ISC",
+  "dependencies": {
+    "bootstrap-datepicker": "^1.4.0",
+    "d3": "^3.5.6",
+    "node-csv-json": "^0.2.1"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-browserify": "^3.8.0",
+    "grunt-contrib-jshint": "^0.11.2",
+    "grunt-contrib-watch": "^0.6.1",
+    "load-grunt-tasks": "^3.2.0"
+  }
+}
