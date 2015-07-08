@@ -1,13 +1,12 @@
 var d3 = require('d3');
 require('./filter_form');
 
-// Plot Config variables
-var svg, xScale, yScale, typeScale;
-var x, y, date, type; // Accessor functions for later
-// Plot config
-var width = 1000,
-    height = 800,
-    margin = 50;
+// Accessor functions for later
+var a = {};
+
+// Get plotting functions
+var geoPlot = require('./geo-plot');
+var datePlot = require('./date-plot');
 
 // Getting the data
 d3.json('data/crime2013.json', initPlot);
@@ -18,17 +17,26 @@ function initPlot(error, data) {
         return null;
     }
     // Accessor functions
-    x = function(d) { return parseFloat(d['X Coordinate']); };
-    y = function(d) { return parseFloat(d['Y Coordinate']); };
-    date = function (d) { return d['Report Date']; };
-    type = function (d) { return d['Major Offense Type']; };
+    a.x = function(d) { return parseFloat(d['X Coordinate']); };
+    a.y = function(d) { return parseFloat(d['Y Coordinate']); };
+    a.date = function (d) { return d['Report Date']; };
+    a.time = function (d) { return d['Report Time']; };
+    a.type = function (d) { return d['Major Offense Type']; };
     // Filter out data without locations
     function hasLocation(d) {
-        return x(d) !== '';
+        return a.x(d) !== '';
     }
     data = data.filter(hasLocation);
+    // Convert dates and times
+    data = data.map(addDateTimes);
+    function addDateTimes (d) {
+        d['Report Date'] = new Date(a.date(d) + ' ' + a.time(d));
+        d['Report Time'] = new Date('1/1/2013 ' + a.time(d));
+        return d;
+    }
+    console.log(data[0]);
     // Get list of crime types
-    var crime_types = d3.set(data.map(type))
+    var crime_types = d3.set(data.map(a.type))
             .values()
             .sort();
     d3.select('#type-selector')
@@ -42,31 +50,15 @@ function initPlot(error, data) {
     function filterUpdate() {
         var selected_type = this.value;
         function hasType(d) {
-            return type(d) === selected_type;
+            return a.type(d) === selected_type;
         }
-        plotData(data.filter(hasType));
+        var new_data = data.filter(hasType);
+        geoPlot.plot(new_data, a);
+        datePlot.plot(new_data, a);
     }
-    // Creating a plot
-    svg = d3.select('#plot');
-    svg.attr({ width : 1000,
-               height: 800 });
-    xScale = d3.scale.linear().domain(d3.extent(data, x))
-        .range([margin, width - margin]);
-    yScale = d3.scale.linear().domain(d3.extent(data, y))
-        .range([height - margin, margin]);
-    typeScale = d3.scale.category10();
-    plotData(data);
+    // Initialize the plots
+    geoPlot.init(data, a);
+    datePlot.init(data, a);
+    // timePlot.init(data);
 }
 
-function plotData(data) {
-    var selection = svg.selectAll('circle').data(data);
-
-    selection.enter()
-        .append('circle')
-        .attr({cx : function (d) { return xScale(x(d)); },
-               cy : function (d) { return yScale(y(d)); },
-               r : 2,
-               fill : function (d) { return typeScale(type(d)); }
-              });
-    selection.exit().remove();
-}
