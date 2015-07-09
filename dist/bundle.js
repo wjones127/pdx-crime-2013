@@ -1,4 +1,310 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+// d3.tip
+// Copyright (c) 2013 Justin Palmer
+//
+// Tooltips for d3.js SVG visualizations
+
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module with d3 as a dependency.
+    define(['d3'], factory)
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS
+    module.exports = function(d3) {
+      d3.tip = factory(d3)
+      return d3.tip
+    }
+  } else {
+    // Browser global.
+    root.d3.tip = factory(root.d3)
+  }
+}(this, function (d3) {
+
+  // Public - contructs a new tooltip
+  //
+  // Returns a tip
+  return function() {
+    var direction = d3_tip_direction,
+        offset    = d3_tip_offset,
+        html      = d3_tip_html,
+        node      = initNode(),
+        svg       = null,
+        point     = null,
+        target    = null
+
+    function tip(vis) {
+      svg = getSVGNode(vis)
+      point = svg.createSVGPoint()
+      document.body.appendChild(node)
+    }
+
+    // Public - show the tooltip on the screen
+    //
+    // Returns a tip
+    tip.show = function() {
+      var args = Array.prototype.slice.call(arguments)
+      if(args[args.length - 1] instanceof SVGElement) target = args.pop()
+
+      var content = html.apply(this, args),
+          poffset = offset.apply(this, args),
+          dir     = direction.apply(this, args),
+          nodel   = d3.select(node),
+          i       = directions.length,
+          coords,
+          scrollTop  = document.documentElement.scrollTop || document.body.scrollTop,
+          scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft
+
+      nodel.html(content)
+        .style({ opacity: 1, 'pointer-events': 'all' })
+
+      while(i--) nodel.classed(directions[i], false)
+      coords = direction_callbacks.get(dir).apply(this)
+      nodel.classed(dir, true).style({
+        top: (coords.top +  poffset[0]) + scrollTop + 'px',
+        left: (coords.left + poffset[1]) + scrollLeft + 'px'
+      })
+
+      return tip
+    }
+
+    // Public - hide the tooltip
+    //
+    // Returns a tip
+    tip.hide = function() {
+      var nodel = d3.select(node)
+      nodel.style({ opacity: 0, 'pointer-events': 'none' })
+      return tip
+    }
+
+    // Public: Proxy attr calls to the d3 tip container.  Sets or gets attribute value.
+    //
+    // n - name of the attribute
+    // v - value of the attribute
+    //
+    // Returns tip or attribute value
+    tip.attr = function(n, v) {
+      if (arguments.length < 2 && typeof n === 'string') {
+        return d3.select(node).attr(n)
+      } else {
+        var args =  Array.prototype.slice.call(arguments)
+        d3.selection.prototype.attr.apply(d3.select(node), args)
+      }
+
+      return tip
+    }
+
+    // Public: Proxy style calls to the d3 tip container.  Sets or gets a style value.
+    //
+    // n - name of the property
+    // v - value of the property
+    //
+    // Returns tip or style property value
+    tip.style = function(n, v) {
+      if (arguments.length < 2 && typeof n === 'string') {
+        return d3.select(node).style(n)
+      } else {
+        var args =  Array.prototype.slice.call(arguments)
+        d3.selection.prototype.style.apply(d3.select(node), args)
+      }
+
+      return tip
+    }
+
+    // Public: Set or get the direction of the tooltip
+    //
+    // v - One of n(north), s(south), e(east), or w(west), nw(northwest),
+    //     sw(southwest), ne(northeast) or se(southeast)
+    //
+    // Returns tip or direction
+    tip.direction = function(v) {
+      if (!arguments.length) return direction
+      direction = v == null ? v : d3.functor(v)
+
+      return tip
+    }
+
+    // Public: Sets or gets the offset of the tip
+    //
+    // v - Array of [x, y] offset
+    //
+    // Returns offset or
+    tip.offset = function(v) {
+      if (!arguments.length) return offset
+      offset = v == null ? v : d3.functor(v)
+
+      return tip
+    }
+
+    // Public: sets or gets the html value of the tooltip
+    //
+    // v - String value of the tip
+    //
+    // Returns html value or tip
+    tip.html = function(v) {
+      if (!arguments.length) return html
+      html = v == null ? v : d3.functor(v)
+
+      return tip
+    }
+
+    function d3_tip_direction() { return 'n' }
+    function d3_tip_offset() { return [0, 0] }
+    function d3_tip_html() { return ' ' }
+
+    var direction_callbacks = d3.map({
+      n:  direction_n,
+      s:  direction_s,
+      e:  direction_e,
+      w:  direction_w,
+      nw: direction_nw,
+      ne: direction_ne,
+      sw: direction_sw,
+      se: direction_se
+    }),
+
+    directions = direction_callbacks.keys()
+
+    function direction_n() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.n.y - node.offsetHeight,
+        left: bbox.n.x - node.offsetWidth / 2
+      }
+    }
+
+    function direction_s() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.s.y,
+        left: bbox.s.x - node.offsetWidth / 2
+      }
+    }
+
+    function direction_e() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.e.y - node.offsetHeight / 2,
+        left: bbox.e.x
+      }
+    }
+
+    function direction_w() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.w.y - node.offsetHeight / 2,
+        left: bbox.w.x - node.offsetWidth
+      }
+    }
+
+    function direction_nw() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.nw.y - node.offsetHeight,
+        left: bbox.nw.x - node.offsetWidth
+      }
+    }
+
+    function direction_ne() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.ne.y - node.offsetHeight,
+        left: bbox.ne.x
+      }
+    }
+
+    function direction_sw() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.sw.y,
+        left: bbox.sw.x - node.offsetWidth
+      }
+    }
+
+    function direction_se() {
+      var bbox = getScreenBBox()
+      return {
+        top:  bbox.se.y,
+        left: bbox.e.x
+      }
+    }
+
+    function initNode() {
+      var node = d3.select(document.createElement('div'))
+      node.style({
+        position: 'absolute',
+        top: 0,
+        opacity: 0,
+        'pointer-events': 'none',
+        'box-sizing': 'border-box'
+      })
+
+      return node.node()
+    }
+
+    function getSVGNode(el) {
+      el = el.node()
+      if(el.tagName.toLowerCase() === 'svg')
+        return el
+
+      return el.ownerSVGElement
+    }
+
+    // Private - gets the screen coordinates of a shape
+    //
+    // Given a shape on the screen, will return an SVGPoint for the directions
+    // n(north), s(south), e(east), w(west), ne(northeast), se(southeast), nw(northwest),
+    // sw(southwest).
+    //
+    //    +-+-+
+    //    |   |
+    //    +   +
+    //    |   |
+    //    +-+-+
+    //
+    // Returns an Object {n, s, e, w, nw, sw, ne, se}
+    function getScreenBBox() {
+      var targetel   = target || d3.event.target;
+
+      while ('undefined' === typeof targetel.getScreenCTM && 'undefined' === targetel.parentNode) {
+          targetel = targetel.parentNode;
+      }
+
+      var bbox       = {},
+          matrix     = targetel.getScreenCTM(),
+          tbbox      = targetel.getBBox(),
+          width      = tbbox.width,
+          height     = tbbox.height,
+          x          = tbbox.x,
+          y          = tbbox.y
+
+      point.x = x
+      point.y = y
+      bbox.nw = point.matrixTransform(matrix)
+      point.x += width
+      bbox.ne = point.matrixTransform(matrix)
+      point.y += height
+      bbox.se = point.matrixTransform(matrix)
+      point.x -= width
+      bbox.sw = point.matrixTransform(matrix)
+      point.y -= height / 2
+      bbox.w  = point.matrixTransform(matrix)
+      point.x += width
+      bbox.e = point.matrixTransform(matrix)
+      point.x -= width / 2
+      point.y -= height / 2
+      bbox.n = point.matrixTransform(matrix)
+      point.y += height
+      bbox.s = point.matrixTransform(matrix)
+
+      return bbox
+    }
+
+    return tip
+  };
+
+}));
+
+},{}],2:[function(require,module,exports){
 !function() {
   var d3 = {
     version: "3.5.6"
@@ -9503,31 +9809,11 @@
   if (typeof define === "function" && define.amd) define(d3); else if (typeof module === "object" && module.exports) module.exports = d3;
   this.d3 = d3;
 }();
-},{}],2:[function(require,module,exports){
-// Functions to define the date Filter
-var start = (function() {
-    var startDate;
-    return function (new_start) {
-        if (new_start === undefined) return startDate;
-        else startDate = new_start;
-    };
-})();
-var end = (function() {
-    var endDate;
-    return function (new_end) {
-        if (new_end === undefined) return endDate;
-        else endDate = new_end;
-    };
-})();
-function dateFilter (date) {
-    return start() <= date <= end();
-}
-function dScale (d) {
-    return dateFilter(date(d)) ? 'steelblue' : '#ccc';
-}
+},{}],3:[function(require,module,exports){
+var drag = require('./drag');
 
 // Plot config
-var svg, inner, tScale, nScale;
+var svg, inner, endpoints, tScale, nScale;
 var width = 1000,
     height = 250,
     margin = 50,
@@ -9537,8 +9823,10 @@ var width = 1000,
 /**
  * Initializes the plot
  */
-exports.init = function(data, a) {
-    tScale = d3.time.scale().domain(d3.extent(data, a.date))
+exports.init = function(data, a, updateFunc) {
+    var first_date = d3.min(data, a.date),
+        last_date = d3.max(data, a.date);
+    tScale = d3.time.scale().domain([first_date, last_date])
         .range([0, innerW]);
     svg = d3.select('#date-plot');
     svg.attr({ width : width,
@@ -9551,8 +9839,46 @@ exports.init = function(data, a) {
         .attr('class', 'axis date-axis')
         .attr('transform', 'translate(0, ' + innerH + ')')
         .call(tAxis);
+    // Set up the boundary lines
+    endpoints = svg.append('g').attr('id', 'date-endpoints')
+        .attr('transform', 'translate(' + margin + ', ' + margin + ')');
+    var parent = document.getElementById('date-plot');
+    endpoints.append('line')
+        .attr({
+            class : 'endpoint left',
+            x1 : tScale(first_date),
+            x2 : tScale(first_date),
+            y1 : 0,
+            y2 : innerH
+        })
+        .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
+    endpoints.append('line')
+        .attr({
+            class : 'endpoint right',
+            x1 : tScale(last_date),
+            x2 : tScale(last_date),
+            y1 : 0,
+            y2 : innerH
+        })
+    .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
     // Plots the data
     exports.plot(data, a);
+
+    function updateDateRange() {
+        var left = svg.select('.endpoint.left').attr('x1');
+        var right = svg.select('.endpoint.right').attr('x1');
+        left = tScale.invert(left);
+        right = tScale.invert(right);
+        inner.selectAll('rect').classed('selected', false);
+        inner.selectAll('rect').filter(inside).classed('selected', true);
+        function inside(d) {
+
+            return +d.month <= +right && +d.month >= +left;
+        }
+        // Now update the geo plot:
+        updateFunc({startDate : left,
+                    endDate : right});
+    }
 };
 
 /**
@@ -9581,6 +9907,13 @@ exports.plot = function(data, a) {
     nScale = d3.scale.linear().domain([0, d3.max(counts, count)])
         .range([0, innerH]);
     // Draw rectangles
+    inner.selectAll('rect').remove();
+
+    // tooltips
+    var tooltip = d3.tip().attr('class', 'd3-tip')
+            .html(function (d) { return d.count; });
+    inner.call(tooltip);
+
     var rects = inner.selectAll('rect').data(counts);
 
     rects.enter()
@@ -9590,15 +9923,79 @@ exports.plot = function(data, a) {
                 x : function (d) { return tScale(d.month); },
                 y : function (d) { return innerH - nScale(count(d)); },
                 class : 'selected'
-              });
-    rects.exit().remove();
+              })
+        .on('mouseover', tooltip.show)
+        .on('mouseout', tooltip.hide);
 };
 
-},{}],3:[function(require,module,exports){
+
+
+},{"./drag":4}],4:[function(require,module,exports){
+// Place to store the dragging object
+var dragObj;
+
+// Set up mouse position tracking
+document.onmousemove = mouseMove;
+document.addEventListener('mouseup', mouseUp);
+
+function mouseMove (event) {
+    event = event || window.event;
+    window.mousePos = mouseCoords(event);
+    if (dragObj !== undefined) {
+        // Move it
+        var newPos = Math.min(dragObj.right, window.mousePos.x - dragObj.offsetX - dragObj.margin);
+        newPos = Math.max(newPos, dragObj.left);
+        d3.select(dragObj.obj)
+            .attr({ x1 : newPos,
+                    x2 : newPos });
+        dragObj.callback();
+    }
+}
+
+function mouseCoords (event) {
+    if (event.pageX || event.pageY) {
+        return {x : event.pageX, y : event.pageY};
+    }
+    return {
+        x : event.clientX + document.body.scrollLeft - document.body.clientLeft,
+        y : event.clientY + document.body.scrollTop  - document.body.clientTop
+    };
+}
+
+function mouseUp (event) {
+    dragObj = undefined;
+}
+
+
+
+// Create event function
+exports.dragLR = function (leftLimit, rightLimit, plot, callback, margin) {
+    return function() {
+        var offsetX = plot.getBoundingClientRect().left;
+        pauseEvent(d3.event);
+        dragObj = { obj : this,
+                    left : leftLimit,
+                    right : rightLimit,
+                    offsetX : offsetX,
+                    callback : callback,
+                    margin : margin
+                  };
+    };
+};
+
+function pauseEvent(e){
+        if(e.stopPropagation) e.stopPropagation();
+        if(e.preventDefault) e.preventDefault();
+        e.cancelBubble=true;
+        e.returnValue=false;
+        return false;
+    }
+
+},{}],5:[function(require,module,exports){
 $('#start-date').datepicker();
 $('#end-date').datepicker();
 
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 // Plot config
 var svg, xScale, yScale, typeScale;
 var width = 1000,
@@ -9612,6 +10009,7 @@ exports.init = function (data, a) {
     svg = d3.select('#geo-plot');
     svg.attr({ width : width,
                height : height });
+
     xScale = d3.scale.linear().domain(d3.extent(data, a.x))
         .range([margin, width - margin]);
     yScale = d3.scale.linear().domain(d3.extent(data, a.y))
@@ -9624,7 +10022,8 @@ exports.init = function (data, a) {
  * Updates the geographic plot
  */
 exports.plot = function (data, a) {
-    var selection = svg.selectAll('circle').data(data);
+    console.log(d3.set(data.map(a.type)).values().sort());
+    var selection = svg.selectAll('circle').data(data, a.id);
 
     selection.enter()
         .append('circle')
@@ -9636,12 +10035,16 @@ exports.plot = function (data, a) {
     selection.exit().remove();
 };
 
-},{}],5:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 var d3 = require('d3');
+var tip = require('d3-tip');
+tip(d3);
 require('./filter_form');
 
 // Accessor functions for later
 var a = {};
+
+var curr_filters = {type: 'All'};
 
 // Get plotting functions
 var geoPlot = require('./geo-plot');
@@ -9661,9 +10064,10 @@ function initPlot(error, data) {
     a.date = function (d) { return d['Report Date']; };
     a.time = function (d) { return d['Report Time']; };
     a.type = function (d) { return d['Major Offense Type']; };
+    a.id = function (d) { return d['Record ID']; };
     // Filter out data without locations
     function hasLocation(d) {
-        return a.x(d) !== '';
+        return !isNaN(a.x(d));
     }
     data = data.filter(hasLocation);
     // Convert dates and times
@@ -9685,21 +10089,45 @@ function initPlot(error, data) {
         .append('option')
         .html(function (d) { return d; });
     document.getElementById('type-selector')
-        .addEventListener('change', filterUpdate);
-    function filterUpdate() {
-        var selected_type = this.value;
-        function hasType(d) {
-            return a.type(d) === selected_type;
-        }
-        var new_data = data.filter(hasType);
-        geoPlot.plot(new_data, a);
-        datePlot.plot(new_data, a);
+        .addEventListener('change', typeFilterUpdate);
+
+    function typeFilterUpdate() {
+        console.log(data.length);
+        filterUpdate({type: this.value});
     }
+    
+
     // Initialize the plots
     geoPlot.init(data, a);
-    datePlot.init(data, a);
+    datePlot.init(data, a, filterUpdate);
     // timePlot.init(data);
+
+    function filterUpdate(options) {
+        curr_filters.startDate = options.startDate || curr_filters.startDate;
+        curr_filters.endDate = options.endDate || curr_filters.endDate;
+        curr_filters.type = options.type || curr_filters.type;
+        function hasType(d) {
+            if (curr_filters.type === 'All') return true;
+            return a.type(d) === curr_filters.type;
+        }
+        function inDateRange(d) {
+            return +curr_filters.startDate <= +a.date(d) &&
+                +a.date(d) && +curr_filters.endDate;
+        }
+        var new_data = data.filter(hasType);
+        console.log(new_data.length);
+        // Date plot is only filtered by type
+        datePlot.plot(new_data, a);
+
+        // But geo plot can get any filter
+        new_data = new_data.filter(inDateRange);
+        geoPlot.plot(new_data, a);
+
+
+    }
+
 }
 
 
-},{"./date-plot":2,"./filter_form":3,"./geo-plot":4,"d3":1}]},{},[5]);
+
+},{"./date-plot":3,"./filter_form":5,"./geo-plot":6,"d3":2,"d3-tip":1}]},{},[7]);

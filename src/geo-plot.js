@@ -11,6 +11,7 @@ exports.init = function (data, a) {
     svg = d3.select('#geo-plot');
     svg.attr({ width : width,
                height : height });
+
     xScale = d3.scale.linear().domain(d3.extent(data, a.x))
         .range([margin, width - margin]);
     yScale = d3.scale.linear().domain(d3.extent(data, a.y))
@@ -23,7 +24,8 @@ exports.init = function (data, a) {
  * Updates the geographic plot
  */
 exports.plot = function (data, a) {
-    var selection = svg.selectAll('circle').data(data);
+    console.log(d3.set(data.map(a.type)).values().sort());
+    var selection = svg.selectAll('circle').data(data, a.id);
 
     selection.enter()
         .append('circle')

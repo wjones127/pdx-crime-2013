@@ -1,0 +1,37 @@
+$dull: #444;
+$active: steelblue;
+$hover: orange;
+
+#date-plot {
+    rect {
+        fill: $dull;
+        &.selected {
+            fill: $active;
+        }
+        &:hover {
+            fill: $hover;
+        }
+    }
+    
+}
+
+.axis {
+    path {
+        fill: none;
+        stroke: black;
+        stroke-width: 2px;
+    }
+    line {
+        stroke: black;
+        stroke-width: 1px;
+    }
+}
+
+.endpoint {
+    stroke: red;
+    stroke-width: 2px;
+    &:hover {
+        stroke: darken(green, 10%);
+        cursor: col-resize;
+    }
+}

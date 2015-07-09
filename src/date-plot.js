@@ -1,27 +1,7 @@
-// Functions to define the date Filter
-var start = (function() {
-    var startDate;
-    return function (new_start) {
-        if (new_start === undefined) return startDate;
-        else startDate = new_start;
-    };
-})();
-var end = (function() {
-    var endDate;
-    return function (new_end) {
-        if (new_end === undefined) return endDate;
-        else endDate = new_end;
-    };
-})();
-function dateFilter (date) {
-    return start() <= date <= end();
-}
-function dScale (d) {
-    return dateFilter(date(d)) ? 'steelblue' : '#ccc';
-}
+var drag = require('./drag');
 
 // Plot config
-var svg, inner, tScale, nScale;
+var svg, inner, endpoints, tScale, nScale;
 var width = 1000,
     height = 250,
     margin = 50,
@@ -31,8 +11,10 @@ var width = 1000,
 /**
  * Initializes the plot
  */
-exports.init = function(data, a) {
-    tScale = d3.time.scale().domain(d3.extent(data, a.date))
+exports.init = function(data, a, updateFunc) {
+    var first_date = d3.min(data, a.date),
+        last_date = d3.max(data, a.date);
+    tScale = d3.time.scale().domain([first_date, last_date])
         .range([0, innerW]);
     svg = d3.select('#date-plot');
     svg.attr({ width : width,
@@ -45,8 +27,46 @@ exports.init = function(data, a) {
         .attr('class', 'axis date-axis')
         .attr('transform', 'translate(0, ' + innerH + ')')
         .call(tAxis);
+    // Set up the boundary lines
+    endpoints = svg.append('g').attr('id', 'date-endpoints')
+        .attr('transform', 'translate(' + margin + ', ' + margin + ')');
+    var parent = document.getElementById('date-plot');
+    endpoints.append('line')
+        .attr({
+            class : 'endpoint left',
+            x1 : tScale(first_date),
+            x2 : tScale(first_date),
+            y1 : 0,
+            y2 : innerH
+        })
+        .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
+    endpoints.append('line')
+        .attr({
+            class : 'endpoint right',
+            x1 : tScale(last_date),
+            x2 : tScale(last_date),
+            y1 : 0,
+            y2 : innerH
+        })
+    .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
     // Plots the data
     exports.plot(data, a);
+
+    function updateDateRange() {
+        var left = svg.select('.endpoint.left').attr('x1');
+        var right = svg.select('.endpoint.right').attr('x1');
+        left = tScale.invert(left);
+        right = tScale.invert(right);
+        inner.selectAll('rect').classed('selected', false);
+        inner.selectAll('rect').filter(inside).classed('selected', true);
+        function inside(d) {
+
+            return +d.month <= +right && +d.month >= +left;
+        }
+        // Now update the geo plot:
+        updateFunc({startDate : left,
+                    endDate : right});
+    }
 };
 
 /**
@@ -75,6 +95,13 @@ exports.plot = function(data, a) {
     nScale = d3.scale.linear().domain([0, d3.max(counts, count)])
         .range([0, innerH]);
     // Draw rectangles
+    inner.selectAll('rect').remove();
+
+    // tooltips
+    var tooltip = d3.tip().attr('class', 'd3-tip')
+            .html(function (d) { return d.count; });
+    inner.call(tooltip);
+
     var rects = inner.selectAll('rect').data(counts);
 
     rects.enter()
@@ -84,6 +111,9 @@ exports.plot = function(data, a) {
                 x : function (d) { return tScale(d.month); },
                 y : function (d) { return innerH - nScale(count(d)); },
                 class : 'selected'
-              });
-    rects.exit().remove();
+              })
+        .on('mouseover', tooltip.show)
+        .on('mouseout', tooltip.hide);
 };
+
+

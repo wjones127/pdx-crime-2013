@@ -1,8 +1,12 @@
 var d3 = require('d3');
+var tip = require('d3-tip');
+tip(d3);
 require('./filter_form');
 
 // Accessor functions for later
 var a = {};
+
+var curr_filters = {type: 'All'};
 
 // Get plotting functions
 var geoPlot = require('./geo-plot');
@@ -22,9 +26,10 @@ function initPlot(error, data) {
     a.date = function (d) { return d['Report Date']; };
     a.time = function (d) { return d['Report Time']; };
     a.type = function (d) { return d['Major Offense Type']; };
+    a.id = function (d) { return d['Record ID']; };
     // Filter out data without locations
     function hasLocation(d) {
-        return a.x(d) !== '';
+        return !isNaN(a.x(d));
     }
     data = data.filter(hasLocation);
     // Convert dates and times
@@ -46,19 +51,43 @@ function initPlot(error, data) {
         .append('option')
         .html(function (d) { return d; });
     document.getElementById('type-selector')
-        .addEventListener('change', filterUpdate);
-    function filterUpdate() {
-        var selected_type = this.value;
-        function hasType(d) {
-            return a.type(d) === selected_type;
-        }
-        var new_data = data.filter(hasType);
-        geoPlot.plot(new_data, a);
-        datePlot.plot(new_data, a);
+        .addEventListener('change', typeFilterUpdate);
+
+    function typeFilterUpdate() {
+        console.log(data.length);
+        filterUpdate({type: this.value});
     }
+    
+
     // Initialize the plots
     geoPlot.init(data, a);
-    datePlot.init(data, a);
+    datePlot.init(data, a, filterUpdate);
     // timePlot.init(data);
+
+    function filterUpdate(options) {
+        curr_filters.startDate = options.startDate || curr_filters.startDate;
+        curr_filters.endDate = options.endDate || curr_filters.endDate;
+        curr_filters.type = options.type || curr_filters.type;
+        function hasType(d) {
+            if (curr_filters.type === 'All') return true;
+            return a.type(d) === curr_filters.type;
+        }
+        function inDateRange(d) {
+            return +curr_filters.startDate <= +a.date(d) &&
+                +a.date(d) && +curr_filters.endDate;
+        }
+        var new_data = data.filter(hasType);
+        console.log(new_data.length);
+        // Date plot is only filtered by type
+        datePlot.plot(new_data, a);
+
+        // But geo plot can get any filter
+        new_data = new_data.filter(inDateRange);
+        geoPlot.plot(new_data, a);
+
+
+    }
+
 }
+
 
