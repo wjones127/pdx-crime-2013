@@ -11,6 +11,7 @@ var curr_filters = {type: 'All'};
 // Get plotting functions
 var geoPlot = require('./geo-plot');
 var datePlot = require('./date-plot');
+var timePlot = require('./time-plot');
 
 // Getting the data
 d3.json('data/crime2013.json', initPlot);
@@ -62,7 +63,7 @@ function initPlot(error, data) {
     // Initialize the plots
     geoPlot.init(data, a);
     datePlot.init(data, a, filterUpdate);
-    // timePlot.init(data);
+    timePlot.init(data, a, filterUpdate);
 
     function filterUpdate(options) {
         curr_filters.startDate = options.startDate || curr_filters.startDate;
@@ -80,6 +81,8 @@ function initPlot(error, data) {
         console.log(new_data.length);
         // Date plot is only filtered by type
         datePlot.plot(new_data, a);
+        timePlot.plot(new_data, a);
+
 
         // But geo plot can get any filter
         new_data = new_data.filter(inDateRange);
