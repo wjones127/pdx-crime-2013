@@ -1,8 +1,12 @@
-#date-plot rect {
+#map {
+  width: 1000px;
+  height: 600px; }
+
+#time-plot rect {
   fill: #444; }
-  #date-plot rect.selected {
+  #time-plot rect.selected {
     fill: steelblue; }
-  #date-plot rect:hover {
+  #time-plot rect:hover {
     fill: orange; }
 
 .axis path {

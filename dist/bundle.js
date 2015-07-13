@@ -10051,8 +10051,11 @@ var geoPlot = require('./geo-plot');
 var datePlot = require('./date-plot');
 var timePlot = require('./time-plot');
 
+// Maps
+var map, heatmap;
+
 // Getting the data
-d3.json('data/crime2013.json', initPlot);
+d3.json('data/crime2013Clean.geojson', initPlot);
 
 function initPlot(error, data) {
     if (error) {
@@ -10060,27 +10063,24 @@ function initPlot(error, data) {
         return null;
     }
     // Accessor functions
-    a.x = function(d) { return parseFloat(d['X Coordinate']); };
-    a.y = function(d) { return parseFloat(d['Y Coordinate']); };
-    a.date = function (d) { return d['Report Date']; };
-    a.time = function (d) { return d['Report Time']; };
-    a.type = function (d) { return d['Major Offense Type']; };
-    a.id = function (d) { return d['Record ID']; };
-    // Filter out data without locations
-    function hasLocation(d) {
-        return !isNaN(a.x(d));
-    }
-    data = data.filter(hasLocation);
+    a.time = function (d) { return d.properties.time; };
+    a.type = function (d) { return d.properties.type; };
     // Convert dates and times
-    data = data.map(addDateTimes);
+    data.features = data.features.map(addDateTimes);
     function addDateTimes (d) {
-        d['Report Date'] = new Date(a.date(d) + ' ' + a.time(d));
-        d['Report Time'] = new Date('1/1/2013 ' + a.time(d));
+        d.properties.time = new Date('1/1/2013 ' + a.time(d));
         return d;
     }
-    console.log(data[0]);
+    // Convert the coordinates to floats
+    data.features = data.features.map(coordToFloat);
+    function coordToFloat (d) {
+        d.geometry.coordinates[0] = parseFloat(d.geometry.coordinates[0]);
+        d.geometry.coordinates[1] = parseFloat(d.geometry.coordinates[1]);
+        return d;
+    }
+    console.log(data.features[0]);
     // Get list of crime types
-    var crime_types = d3.set(data.map(a.type))
+    var crime_types = d3.set(data.features.map(a.type))
             .values()
             .sort();
     d3.select('#type-selector')
@@ -10093,43 +10093,73 @@ function initPlot(error, data) {
         .addEventListener('change', typeFilterUpdate);
 
     function typeFilterUpdate() {
-        console.log(data.length);
-        filterUpdate({type: this.value});
+        filterUpdateMap({type: this.value});
     }
-    
 
     // Initialize the plots
-    geoPlot.init(data, a);
-    datePlot.init(data, a, filterUpdate);
-    timePlot.init(data, a, filterUpdate);
+    map = new google.maps.Map(document.getElementById('map'),
+                                  { zoom : 11,
+                                    center : { lat : 45.5424364,
+                                               lng : -122.654422 }
+                                  });
+    timePlot.init(data.features, a, filterUpdateMap);
+    filterUpdateMap({ type : crime_types[0] });
 
-    function filterUpdate(options) {
-        curr_filters.startDate = options.startDate || curr_filters.startDate;
-        curr_filters.endDate = options.endDate || curr_filters.endDate;
+
+
+
+
+    /**
+     * Updates the map with new filters.
+     */
+    function filterUpdateMap(options) {
+        curr_filters.startTime = options.startTime || curr_filters.startTime;
+        curr_filters.endTime = options.endTime || curr_filters.endTime;
         curr_filters.type = options.type || curr_filters.type;
         function hasType(d) {
-            if (curr_filters.type === 'All') return true;
+            // if (curr_filters.type === 'All') return true;
             return a.type(d) === curr_filters.type;
         }
-        function inDateRange(d) {
-            return +curr_filters.startDate <= +a.date(d) &&
-                +a.date(d) && +curr_filters.endDate;
+        function inTimeRange(d) {
+            return +curr_filters.startTime <= +a.time(d) &&
+                +a.time(d) <= +curr_filters.endTime;
         }
-        var new_data = data.filter(hasType);
-        console.log(new_data.length);
-        // Date plot is only filtered by type
-        datePlot.plot(new_data, a);
-        timePlot.plot(new_data, a);
+        var new_features = data.features.filter(hasType);
 
+        if (options.type !== undefined)
+            timePlot.plot(new_features, a);
 
         // But geo plot can get any filter
-        new_data = new_data.filter(inDateRange);
-        geoPlot.plot(new_data, a);
+        if (curr_filters.startTime !== undefined)
+            new_features = new_features.filter(inTimeRange);
 
+        var shell = { type : 'FeatureCollection',
+                      properties : ''};
 
+        shell.features = new_features;
+
+        //geoPlot.plot(shell, a);
+        /*
+        map.data.forEach(function (feature) {
+            map.data.remove(feature);
+        });
+        map.data.addGeoJson(shell);
+         */
+        var hp_data = [];
+        for (var i = 0; i < new_features.length; i++)
+            hp_data.push(new google.maps.LatLng(new_features[i].geometry.coordinates[1],
+                                                new_features[i].geometry.coordinates[0]));
+
+        if (heatmap !== undefined)
+            heatmap.setMap(null);
+        heatmap = new google.maps.visualization.HeatmapLayer({
+            data : hp_data
+        });
+
+        heatmap.setMap(map);
     }
-
 }
+
 
 
 
@@ -10139,8 +10169,8 @@ var drag = require('./drag');
 // Plot config
 var svg, inner, endpoints, tScale, nScale;
 var width = 1000,
-    height = 250,
-    margin = 50,
+    height = 150,
+    margin = 25,
     innerH = height - 2 * margin,
     innerW = width - 2 * margin;
 
@@ -10175,7 +10205,7 @@ exports.init = function(data, a, updateFunc) {
             y1 : 0,
             y2 : innerH
         })
-        .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
+        .on('mousedown', drag.dragLR(0, innerW, parent, updateTimeInterval, margin));
     endpoints.append('line')
         .attr({
             class : 'endpoint right',
@@ -10184,26 +10214,36 @@ exports.init = function(data, a, updateFunc) {
             y1 : 0,
             y2 : innerH
         })
-    .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
+    .on('mousedown', drag.dragLR(0, innerW, parent, updateTimeInterval, margin));
     // Plots the data
     exports.plot(data, a);
 
-    function updateDateRange() {
-        var left = svg.select('.endpoint.left').attr('x1');
-        var right = svg.select('.endpoint.right').attr('x1');
-        left = tScale.invert(left);
-        right = tScale.invert(right);
-        inner.selectAll('rect').classed('selected', false);
-        inner.selectAll('rect').filter(inside).classed('selected', true);
-        function inside(d) {
-
-            return +d.hour <= +right && +d.hour >= +left;
-        }
+    function updateTimeInterval() {
+        var ep = getTimeEndpoints();
+        highlightTimeInterval(ep.left, ep.right);
         // Now update the geo plot:
-        updateFunc({startTime : left,
-                    endTime : right});
+        updateFunc({startTime : ep.left,
+                    endTime : ep.right});
     }
 };
+
+function getTimeEndpoints () {
+    var left = svg.select('.endpoint.left').attr('x1');
+    var right = svg.select('.endpoint.right').attr('x1');
+    left = tScale.invert(left);
+    right = tScale.invert(right);
+    console.log(left, right);
+    return {left : left, right : right};
+}
+
+function highlightTimeInterval (left, right) {
+    inner.selectAll('rect').classed('selected', false);
+    inner.selectAll('rect').filter(inside).classed('selected', true);
+    function inside(d) {
+        return +d.hour <= +right && +d.hour >= +left;
+    }
+}
+
 
 /**
  * Plots the actual bars and such. does the updates also.
@@ -10245,11 +10285,13 @@ exports.plot = function(data, a) {
         .attr({ width : (innerW / counts.length) - 1,
                 height : function (d) { return nScale(count(d)); },
                 x : function (d) { return tScale(d.hour); },
-                y : function (d) { return innerH - nScale(count(d)); },
-                class : 'selected'
+                y : function (d) { return innerH - nScale(count(d)); }
               })
         .on('mouseover', tooltip.show)
         .on('mouseout', tooltip.hide);
+
+    var ep = getTimeEndpoints();
+    highlightTimeInterval(ep.left, ep.right);
 };
 
 

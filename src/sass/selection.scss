@@ -2,7 +2,12 @@ $dull: #444;
 $active: steelblue;
 $hover: orange;
 
-#date-plot {
+#map {
+    width: 1000px;
+    height: 600px;
+}
+
+#time-plot {
     rect {
         fill: $dull;
         &.selected {

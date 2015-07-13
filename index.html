@@ -12,6 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
     <link rel="stylesheet" href="dist/style.css">
+    <link rel="stylesheet" href="//rawgithub.com/Caged/d3-tip/master/examples/example-styles.css">
   </head>
   <body>
     <!--[if lt IE 8]>
@@ -22,6 +23,15 @@
       <div class="page-header">
         <h1>PDX Crime <small>Crime Reports in Portland, OR in 2013</small></h1>
       </div>
+
+      <p>
+        This is a visualization of the time and location of crime reports for the
+        city of Portland, OR. The data was released to the public at
+        <a href="http://www.civicapps.org/datasets/crime-incidents-2013">civicapps.org</a>.
+        The classications of crime types are standardized by the Uniform Crime
+        Reporting (UCR) system developed by the FBI. This data set only includes
+        those that contain location data.
+        </p>
       
       <div class="panel panel-default">
         <div class="panel-heading">
@@ -32,17 +42,20 @@
             Crime Incident Type
             <select class="form-control" id="type-selector">
               <!-- remainder of options added with js -->
-              <option>All</option>
+              <!-- <option>All</option> reall not viable right now -->
             </select>
+          </label>
+          <label>
+            Time of Day<br/>
+            <svg id="time-plot"></svg><br/>
+            <small>Drag the red lines to the left and right to select a range of
+              times of day to filter incidents</small>
           </label>
         </div>
       </div>
-      <svg id="date-plot"></svg>
-      <svg id="time-plot"></svg>
-      <svg id="geo-plot">
-        <image xlink:href="http://maps.googleapis.com/maps/api/staticmap?center=Portland,+OR&zoom=13&scale=false&size=640x640&maptype=roadmap&format=png&visual_refresh=true"
-               height="640px" width="640px" x="0" y="0">
-      </svg>
+      <!--<svg id="date-plot"></svg>-->
+
+      <div id="map"></div>
     </div>
 
     
@@ -50,5 +63,8 @@
   <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
   <script src="node_modules/bootstrap-datepicker/dist/js/bootstrap-datepicker.js"></script>
+  <script type="text/javascript"
+            src="https://maps.googleapis.com/maps/api/js?libraries=visualization&sensor=true_or_false">
+    </script>
   <script src="dist/bundle.js"></script>
 </html>

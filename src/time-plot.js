@@ -3,8 +3,8 @@ var drag = require('./drag');
 // Plot config
 var svg, inner, endpoints, tScale, nScale;
 var width = 1000,
-    height = 250,
-    margin = 50,
+    height = 150,
+    margin = 25,
     innerH = height - 2 * margin,
     innerW = width - 2 * margin;
 
@@ -39,7 +39,7 @@ exports.init = function(data, a, updateFunc) {
             y1 : 0,
             y2 : innerH
         })
-        .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
+        .on('mousedown', drag.dragLR(0, innerW, parent, updateTimeInterval, margin));
     endpoints.append('line')
         .attr({
             class : 'endpoint right',
@@ -48,26 +48,36 @@ exports.init = function(data, a, updateFunc) {
             y1 : 0,
             y2 : innerH
         })
-    .on('mousedown', drag.dragLR(0, innerW, parent, updateDateRange, margin));
+    .on('mousedown', drag.dragLR(0, innerW, parent, updateTimeInterval, margin));
     // Plots the data
     exports.plot(data, a);
 
-    function updateDateRange() {
-        var left = svg.select('.endpoint.left').attr('x1');
-        var right = svg.select('.endpoint.right').attr('x1');
-        left = tScale.invert(left);
-        right = tScale.invert(right);
-        inner.selectAll('rect').classed('selected', false);
-        inner.selectAll('rect').filter(inside).classed('selected', true);
-        function inside(d) {
-
-            return +d.hour <= +right && +d.hour >= +left;
-        }
+    function updateTimeInterval() {
+        var ep = getTimeEndpoints();
+        highlightTimeInterval(ep.left, ep.right);
         // Now update the geo plot:
-        updateFunc({startTime : left,
-                    endTime : right});
+        updateFunc({startTime : ep.left,
+                    endTime : ep.right});
     }
 };
+
+function getTimeEndpoints () {
+    var left = svg.select('.endpoint.left').attr('x1');
+    var right = svg.select('.endpoint.right').attr('x1');
+    left = tScale.invert(left);
+    right = tScale.invert(right);
+    console.log(left, right);
+    return {left : left, right : right};
+}
+
+function highlightTimeInterval (left, right) {
+    inner.selectAll('rect').classed('selected', false);
+    inner.selectAll('rect').filter(inside).classed('selected', true);
+    function inside(d) {
+        return +d.hour <= +right && +d.hour >= +left;
+    }
+}
+
 
 /**
  * Plots the actual bars and such. does the updates also.
@@ -109,11 +119,13 @@ exports.plot = function(data, a) {
         .attr({ width : (innerW / counts.length) - 1,
                 height : function (d) { return nScale(count(d)); },
                 x : function (d) { return tScale(d.hour); },
-                y : function (d) { return innerH - nScale(count(d)); },
-                class : 'selected'
+                y : function (d) { return innerH - nScale(count(d)); }
               })
         .on('mouseover', tooltip.show)
         .on('mouseout', tooltip.hide);
+
+    var ep = getTimeEndpoints();
+    highlightTimeInterval(ep.left, ep.right);
 };
 
 

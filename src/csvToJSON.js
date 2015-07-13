@@ -2,8 +2,8 @@ var fs = require('fs');
 var cj = require('node-csv-json');
 
 cj({
-  input : 'data/crime2013.csv',
-  output : 'data/crime2013.json'
+  input : 'data/crime.csv',
+  output : 'data/crime.json'
   },
    function (err, result) {
      if (err)
